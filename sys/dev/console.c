@@ -28,7 +28,7 @@ Console_Init()
     Console_Puts("Castor Operating System\n");
 
     // XXXFILLMEIN
-    Console_Puts(YOUR USERNAME HERE "\n");
+    Console_Puts("j636yang\n");
     // For example, Console_Puts("yourname\n");
 
     Spinlock_Init(&consoleLock, "Console Lock", SPINLOCK_TYPE_NORMAL);
