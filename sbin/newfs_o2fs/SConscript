@@ -1,0 +1,22 @@
+import sys
+
+Import('toolenv')
+Import('env')
+
+newfs_env = env.Clone()
+if (env["TOOLCHAINBUILD"] == "TRUE"):
+    newfs_env = toolenv.Clone()
+
+src = [
+    "newfs_o2fs.c"
+]
+
+if env["TOOLCHAINBUILD"] != "TRUE":
+    newfs_env.Append(LINKFLAGS = ['-nostdlib'])
+    newfs_env.Append(CPPFLAGS = ['-nostdinc'])
+    newfs_env.Append(LIBPATH = ['#build/lib/libc'], LIBS = ['c'])
+    newfs_env.Append(CPPPATH = ['#build/include'])
+
+newfs_env.Append(CPPPATH = ['#sys/fs/o2fs'])
+newfs_env.Program("newfs_o2fs", src)
+

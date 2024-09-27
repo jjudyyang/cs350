@@ -1,0 +1,67 @@
+import sys
+
+Import('env')
+
+test_env = env.Clone()
+
+test_env.Append(LINKFLAGS = ['-nostdlib'])
+test_env.Append(CPPFLAGS = ['-fno-builtin', '-nostdinc'])
+test_env.Append(CPPPATH = ['#build/include'])
+test_env.Append(LIBPATH = ['#build/lib/libc'], LIBS = ['c'])
+
+fiotest_src = []
+fiotest_src.append(env["CRTBEGIN"])
+fiotest_src.append(["fiotest.c"])
+fiotest_src.append(env["CRTEND"])
+test_env.Program("fiotest", fiotest_src)
+
+threadtest_src = []
+threadtest_src.append(env["CRTBEGIN"])
+threadtest_src.append(["threadtest.c"])
+threadtest_src.append(env["CRTEND"])
+test_env.Program("threadtest", threadtest_src)
+
+spawnanytest_src = []
+spawnanytest_src.append(env["CRTBEGIN"])
+spawnanytest_src.append(["spawnanytest.c"])
+spawnanytest_src.append(env["CRTEND"])
+test_env.Program("spawnanytest", spawnanytest_src)
+
+spawnmultipletest_src = []
+spawnmultipletest_src.append(env["CRTBEGIN"])
+spawnmultipletest_src.append(["spawnmultipletest.c"])
+spawnmultipletest_src.append(env["CRTEND"])
+test_env.Program("spawnmultipletest", spawnmultipletest_src)
+
+spawnsingletest_src = []
+spawnsingletest_src.append(env["CRTBEGIN"])
+spawnsingletest_src.append(["spawnsingletest.c"])
+spawnsingletest_src.append(env["CRTEND"])
+test_env.Program("spawnsingletest", spawnsingletest_src)
+
+pthreadtest_src = []
+pthreadtest_src.append(env["CRTBEGIN"])
+pthreadtest_src.append(["pthreadtest.c"])
+pthreadtest_src.append(env["CRTEND"])
+test_env.Program("pthreadtest", pthreadtest_src)
+
+writetest_src = []
+writetest_src.append(env["CRTBEGIN"])
+writetest_src.append(["writetest.c"])
+writetest_src.append(env["CRTEND"])
+test_env.Program("writetest", writetest_src)
+
+#test_netenv = env.Clone()
+#
+#test_netenv.Append(LINKFLAGS = ['-nostdlib'])
+#test_netenv.Append(CPPFLAGS = ['-fno-builtin', '-nostdinc'])
+#test_netenv.Append(CPPPATH = ['#build/include', '#build/include/ipv4'])
+#test_netenv.Append(LIBPATH = ['#build/lib/libc', '#build/lib/liblwip'],
+#		LIBS = ['lwip', 'c'])
+#
+#lwiptest_src = []
+#lwiptest_src.append(env["CRTBEGIN"])
+#lwiptest_src.append(["lwiptest.c"])
+#lwiptest_src.append(env["CRTEND"])
+#test_netenv.Program("lwiptest", lwiptest_src)
+

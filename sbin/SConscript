@@ -1,0 +1,23 @@
+import sys
+
+Import('env')
+
+penv = env.Clone()
+penv.Append(CPPFLAGS = ['-fno-builtin', '-nostdinc'])
+penv.Append(LINKFLAGS = ['-nostdlib'])
+
+def CastorProgram(name):
+    src = [ ]
+    src.append(env["CRTBEGIN"])
+    src.append(name + ".c")
+    src.append(env["CRTEND"])
+
+    penv.Program(name, src,
+                CPPPATH = ['#build/include'],
+                LIBPATH = ['#build/lib/libc'],
+                LIBS = ['c'])
+
+CastorProgram("ifconfig")
+CastorProgram("init")
+CastorProgram("sysctl")
+

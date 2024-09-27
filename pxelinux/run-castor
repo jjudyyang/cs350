@@ -1,0 +1,4 @@
+#!/bin/sh
+
+qemu-system-x86_64 -bootp tftp://10.0.2.2/pxelinux.0 -tftp ./
+

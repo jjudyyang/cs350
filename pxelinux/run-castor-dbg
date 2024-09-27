@@ -1,0 +1,4 @@
+#!/bin/sh
+
+qemu-system-x86_64 -d int,cpu_reset,guest_errors -bootp tftp://10.0.2.2/pxelinux.0 -tftp ./
+

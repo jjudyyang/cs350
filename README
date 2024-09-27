@@ -1,0 +1,57 @@
+
+Getting Started
+---------------
+
+Requirements:
+ - SCons 4.0+
+ - Clang 15
+ - Qemu for simulation
+
+IMPORTANT: Create a file called Local.sc in the base of the source tree that 
+points to your Clang 15 binary.  Each OS distribution uses a different scheme 
+but usually it is called clang15 or clang-15.  The file should contain the 
+following two lines:
+
+CC="path to clang-15"
+LINK="path to clang-15"
+
+To build the source code run:
+# scons
+
+To clean the source tree run:
+# scons -c
+
+Building on ARM64
+-----------------
+
+This release supports cross compiling from ARM64 machines provided that you 
+still meet the above requirements.
+
+If you are using macOS on Apple Silicon, beware that Apple's LLVM toolchain 
+appears to be missing some of the linking bits necessary.  Please install LLVM 
+from Mac Ports or your favorite package manager.
+
+Building Documentation
+----------------------
+
+Requirements:
+ - Doxygen
+ - Graphviz
+ - dia
+ - Inkscape or png2pdf
+
+To build the documentation run the following command in the root folder:
+# doxygen docs/Doxyfile
+
+This will place the resulting HTML documentation in docs/html.
+
+Frequently Asked Questions
+--------------------------
+
+If you copy your source tree between machines beware that you may need to 
+manually delete the following files and directories to fix your build..
+
+# rm -r build
+# rm -r .sconf_temp
+# rm .sconsign.dblite
+

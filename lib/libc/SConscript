@@ -1,0 +1,46 @@
+import sys
+
+Import('env')
+
+libc_env = env.Clone()
+
+src = [ ]
+
+src_common = [
+    "abort.c",
+    "assert.c",
+    "core/mutex.c",
+    "dir.c",
+    "exit.c",
+    "file.c",
+    "malloc.c",
+    "printf.c",
+    "process.c",
+    "posix/mman.c",
+    "posix/pthread.c",
+    "stdlib.c",
+    "string.c",
+    "syscall.c",
+    "time.c",
+]
+
+src_amd64 = [
+#    "amd64/entry.S",
+    "amd64/syscall.S",
+]
+
+if (env["ARCH"] == "amd64"):
+    src.append(src_amd64)
+src.append(src_common)
+
+if env["UBSAN"] == "1":
+    src.append(["ubsan.c"])
+
+libc_env.Append(CPPFLAGS = ['-nostdinc'])
+libc_env.Append(CPPPATH = ['#build/include'])
+
+libc_env.StaticLibrary("libc", src)
+libc_env.StaticObject("crt1", "crt1.c")
+libc_env.StaticObject("crti", "crti.S")
+libc_env.StaticObject("crtn", "crtn.S")
+

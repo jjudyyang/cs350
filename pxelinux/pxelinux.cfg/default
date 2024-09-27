@@ -1,0 +1,15 @@
+# D-I config version 2.0
+prompt 0
+timeout 10
+default menu.c32
+
+menu margin 20
+menu width 80
+menu vshift 3
+menu title Main Menu
+
+label Castor
+    menu label Castor 64-bit
+    kernel mboot.c32
+    append castor
+

@@ -1,0 +1,92 @@
+import sys
+
+Import('env')
+
+kern_env = env.Clone()
+
+src = [ ]
+
+src_amd64 = [
+    # Multiboot requires multiboot.S to be the first file
+    "amd64/multiboot.S",
+    "amd64/mbentry.c",
+    # AMD64
+    "amd64/critical.c",
+    "amd64/debug.c",
+    "amd64/disasm.c",
+    "amd64/ioapic.c",
+    "amd64/irq.c",
+    "amd64/lapic.c",
+    "amd64/machine.c",
+    "amd64/mp.c",
+    "amd64/mpboot.S",
+    "amd64/pci.c",
+    "amd64/pmap.c",
+    "amd64/support.S",
+    "amd64/switch.S",
+    "amd64/thread.c",
+    "amd64/time.c",
+    "amd64/trap.c",
+    "amd64/trapentry.S",
+    "amd64/xmem.c",
+    # Devices
+    "dev/x86/debugcons.c",
+    "dev/x86/ide.c",
+    "dev/x86/ps2.c",
+    "dev/x86/rtc.c",
+    "dev/x86/sercons.c",
+    "dev/x86/vgacons.c",
+]
+
+src_common = [
+    "kern/copy.c",
+    "kern/bufcache.c",
+    "kern/cv.c",
+    "kern/debug.c",
+    "kern/disk.c",
+    "kern/handle.c",
+    "kern/ktime.c",
+    "kern/ktimer.c",
+    "kern/libc.c",
+    "kern/loader.c",
+    "kern/mutex.c",
+    "kern/nic.c",
+    "kern/palloc.c",
+    "kern/printf.c",
+    "kern/process.c",
+    "kern/sched.c",
+    "kern/semaphore.c",
+    "kern/sga.c",
+    "kern/slab.c",
+    "kern/spinlock.c",
+    "kern/syscall.c",
+    "kern/sysctl.c",
+    "kern/thread.c",
+    "kern/vfs.c",
+    "kern/vfsuio.c",
+    "kern/waitchannel.c",
+    "dev/ahci.c",
+    "dev/console.c",
+    "dev/e1000.c",
+    "dev/pci.c",
+    "fs/o2fs/o2fs.c",
+]
+
+if (env["ARCH"] == "amd64"):
+    src.append(src_amd64)
+    ldscript = "#sys/amd64/kernel.lds"
+src.append(src_common)
+
+if env["UBSAN"] == "1":
+    src.append(["kern/ubsan.c"])
+
+kern_env.Append(LINKFLAGS = ['-T', ldscript[1:], '-nostdlib'])
+kern_env.Append(CPPFLAGS = ['-D_KERNEL'])
+kern_env.Append(CPPFLAGS = ['-ffreestanding', '-fno-builtin', '-fwrapv', '-nostdinc',
+			    '-mno-red-zone', '-mno-mmx', '-mno-sse', 
+			    '-mcmodel=large'])
+kern_env.Append(CPPPATH = ['#build/include'])
+
+kernel = kern_env.Program("castor", src)
+Depends(kernel, ldscript)
+

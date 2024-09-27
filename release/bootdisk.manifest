@@ -1,0 +1,34 @@
+DIR /
+  DIR boot
+    FILE kernel build/sys/castor
+  END
+  DIR dev
+  END
+  DIR bin
+    FILE cat build/bin/cat
+    FILE date build/bin/date
+    FILE echo build/bin/echo
+    FILE false build/bin/false
+    FILE ls build/bin/ls
+    FILE shell build/bin/shell
+    FILE stat build/bin/stat
+    FILE true build/bin/true
+  END
+  DIR sbin
+    FILE ethdump build/bin/ethdump
+    FILE ethinject build/bin/ethinject
+    FILE ifconfig build/sbin/ifconfig
+    FILE init build/sbin/init
+    FILE sysctl build/sbin/sysctl
+  END
+  DIR tests
+    FILE fiotest build/tests/fiotest
+    FILE pthreadtest build/tests/pthreadtest
+    FILE spawnsingletest build/tests/spawnsingletest
+    FILE spawnmultipletest build/tests/spawnmultipletest
+    FILE spawnanytest build/tests/spawnanytest
+    FILE threadtest build/tests/threadtest
+    FILE writetest build/tests/writetest
+  END
+  FILE LICENSE LICENSE
+END

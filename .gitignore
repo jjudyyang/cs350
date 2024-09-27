@@ -1,0 +1,11 @@
+Local.sc
+.sconf_temp/
+.sconsign.dblite
+config.log
+build/
+pxelinux/castor
+pxelinux/bootdisk.img
+*.un~
+compile_commands.json
+.cache
+.arcconfig
