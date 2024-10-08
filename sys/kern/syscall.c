@@ -125,6 +125,10 @@ Syscall_Spawn(uint64_t user_path, uint64_t user_argv)
     }
 
     /* XXXFILLMEIN: Load the ELF headers into the page. */
+        file = VFS_Lookup(path);
+        VFS_Open(file);
+        VFS_Read(file, pg, 0, 1024);
+    //end of first fill me in
 
     if (!Loader_CheckHeader(pg)) {
 	VFS_Close(file);
@@ -156,6 +160,23 @@ Syscall_Spawn(uint64_t user_path, uint64_t user_argv)
     uintptr_t offset = sizeof(uintptr_t)*8;
 
     /* XXXFILLMEIN: Export the argument array out to the new application. */
+    char *destArg = (char*) argstart;
+    uintptr_t *destArray = (uintptr_t*) argstart;
+    memset(destArray, 0, sizeof(uintptr_t));  // Initialize the array to zero
+    uintptr_t *srcArray = (uintptr_t*) arg;
+
+    for (int idx = 1; idx < 9; idx++) {
+        if (srcArray[idx] == NULL) {
+            destArray[0] = idx - 1;  // Store argument count
+            break;
+        }
+
+        size_t argLen = strlen((char*)srcArray[idx]) + 1; // Get the string length including the null terminator
+        strcpy(destArg + offset, (char*) srcArray[idx]);  // Copy string to destination with offset
+        destArray[idx] = offset + MEM_USERSPACE_STKTOP - PGSIZE;  // Adjust the offset to point to user space
+        offset += argLen;  // Update the offset for the next argument
+    }
+    //end of second fill me in
 
     Sched_SetRunnable(thr);
 

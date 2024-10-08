@@ -27,7 +27,7 @@ Console_Init()
 
     Console_Puts("Castor Operating System\n");
 
-    // XXXFILLMEIN
+    // XXXFILLMEIN - fill me in
     Console_Puts("j636yang\n");
     // For example, Console_Puts("yourname\n");
 
