@@ -169,17 +169,12 @@ Loader_Load(Thread *thr, VNode *vn, void *buf, uint64_t len)
     PMap_AllocMap(as, MEM_USERSPACE_STKBASE, MEM_USERSPACE_STKLEN, PTE_W);
 
     /* XXXFILLMEIN: Load the ELF segments. */
-    int segCount;
-    for (segCount = 0; segCount < ehdr->e_phnum; segCount++) {
-        if (phdr[segCount].p_type == PT_LOAD) {
-            // Load the segment into memory
-            LoadSegment(as, vn, phdr[segCount].p_vaddr, phdr[segCount].p_offset, phdr[segCount].p_filesz);
-
-            // Zero out any remaining memory in the segment if needed
-            ZeroSegment(as, phdr[segCount].p_vaddr + phdr[segCount].p_filesz, phdr[segCount].p_memsz - phdr[segCount].p_filesz);
-        }
-    }
-    //end of fill me in
+    for (i = 0; i < ehdr->e_phnum; i++) {
+       if (phdr[i].p_type == PT_LOAD) {
+           LoaderLoadSegment(as, vn, phdr[i].p_vaddr, phdr[i].p_offset, phdr[i].p_filesz);
+           LoaderZeroSegment(as, phdr[i].p_vaddr + phdr[i].p_filesz, phdr[i].p_memsz - phdr[i].p_filesz);
+       }
+   }
 
     /* Save the process entry point (i.e., _start) */
     thr->proc->entrypoint = ehdr->e_entry;

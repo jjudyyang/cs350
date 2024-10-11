@@ -130,6 +130,8 @@ Syscall_Spawn(uint64_t user_path, uint64_t user_argv)
         VFS_Read(file, pg, 0, 1024);
     //end of first fill me in
 
+
+
     if (!Loader_CheckHeader(pg)) {
 	VFS_Close(file);
 	PAlloc_Release(pg);
@@ -177,6 +179,24 @@ Syscall_Spawn(uint64_t user_path, uint64_t user_argv)
         offset += argLen;  // Update the offset for the next argument
     }
     //end of second fill me in
+        char *destinationString = (char*) argstart;
+   uintptr_t *destinationPointerArray = (uintptr_t*) argstart;
+   memset(destinationPointerArray, 0, sizeof(uintptr_t));  // Initialize the array to zero
+   uintptr_t *sourcePointerArray = (uintptr_t*) arg;
+
+   for (int indexArg = 1; indexArg < 9; indexArg++) {
+       if (sourcePointerArray[indexArg] == NULL) {
+           destinationPointerArray[0] = indexArg - 1;  // Store argument count
+           break;
+       }
+
+       size_t lengthArg = strlen((char*)sourcePointerArray[indexArg]) + 1; // Get the string length including the null terminator
+       strcpy(destinationString + offset, (char*) sourcePointerArray[indexArg]);  // Copy string to destination with offset
+       destinationPointerArray[indexArg] = MEM_USERSPACE_STKTOP - PGSIZE + offset;  // Adjust the offset to point to user space
+       offset = offset + lengthArg;  // Update the offset for the next argument
+   }
+
+    //end of export argument array
 
     Sched_SetRunnable(thr);
 
