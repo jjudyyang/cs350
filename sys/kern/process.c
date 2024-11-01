@@ -209,36 +209,41 @@ Process_Wait(Process *proc, uint64_t pid)
     Process *p = NULL;
     uint64_t status;
 
-    // XXXFILLMEIN
-    /* 
-     * Dummy waitpid implementation that returns an error. Remove and replace
-     * with the actual implementation from the assignment description.
-     */
-    /* XXXREMOVE START */
-    return SYSCALL_PACK(ENOSYS, 0);
-    /* XXXREMOVE END */
+    // Step 1: Lock the zombie list
+    Mutex_Lock(&proc->zombieProcLock);
 
+    if (pid == 0) {
+        // Step 2: Wait for any zombie child if pid == 0
+        while (TAILQ_EMPTY(&proc->zombieProc)) {
+            CV_Wait(&proc->zombieProcCV, &proc->zombieProcLock);
+        }
+        // Get the first zombie child
+        p = TAILQ_FIRST(&proc->zombieProc);
+    } else {
+        // Step 3: Lookup the specific child and wait for it to become a zombie
+        p = Process_Lookup(pid);
+        if (p == NULL) {
+            Mutex_Unlock(&proc->zombieProcLock);
+            return ENOENT; // No such process
+        }
+        while (p->procState != PROC_STATE_ZOMBIE) {
+            CV_Wait(&p->zombieProcPCV, &proc->zombieProcLock);
+        }
+    }
+
+    // Step 4: Pack the exit status
     status = (p->pid << 16) | (p->exitCode & 0xff);
 
-    // Release threads
-    Spinlock_Lock(&proc->lock);
-    while (!TAILQ_EMPTY(&p->zombieQueue)) {
-	thr = TAILQ_FIRST(&p->zombieQueue);
-	TAILQ_REMOVE(&p->zombieQueue, thr, schedQueue);
-	Spinlock_Unlock(&proc->lock);
+    // Step 5: Remove the zombie process from the queue and unlock
+    TAILQ_REMOVE(&proc->zombieProc, p, siblingList);
+    Mutex_Unlock(&proc->zombieProcLock);
 
-	ASSERT(thr->proc->pid != 1);
-	Thread_Release(thr);
-
-	Spinlock_Lock(&proc->lock);
-    }
-    Spinlock_Unlock(&proc->lock);
-
-    // Release process
+    // Step 6: Release the zombie process
     Process_Release(p);
 
     return SYSCALL_PACK(0, status);
 }
+
 
 /*
  * Debugging

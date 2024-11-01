@@ -48,6 +48,16 @@ CV_Wait(CV *cv, Mutex *mtx)
     /* Do not go to sleep holding a spinlock! */
     ASSERT(Critical_Level() == 0);
     /* XXXFILLMEIN */
+
+    //release spinlock to avoid deadlock
+    Mutex_Unlock(&mtx->lock);
+
+    //put thread to sleep
+    WaitChannel_Lock(&cv->chan);
+    WaitChannel_Sleep(&cv->chan);
+
+    Mutex_Lock(&mtx->lock); //relock mutex
+
 }
 
 /**
@@ -59,6 +69,7 @@ void
 CV_Signal(CV *cv)
 {
     /* XXXFILLMEIN */
+    WaitChannel_Wake(&cv->chan);
 }
 
 /**
@@ -70,5 +81,9 @@ void
 CV_Broadcast(CV *cv)
 {
     /* XXXFILLMEIN */
+    WaitChannel_WakeAll(&cv->chan);
+
+
+
 }
 

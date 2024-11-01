@@ -24,6 +24,7 @@
  * For debugging so we can assert the owner without holding a reference to the 
  * thread.  You can access the current thread through curProc[CPU()].
  */
+
 extern Thread *curProc[MAX_CPUS];
 
 void
@@ -31,14 +32,13 @@ Mutex_Init(Mutex *mtx, const char *name)
 {
     Spinlock_Init(&mtx->lock, name, SPINLOCK_TYPE_NORMAL);
     WaitChannel_Init(&mtx->chan, name);
-
     return;
 }
 
 void
 Mutex_Destroy(Mutex *mtx)
 {
-    WaitChannel_Destroy(&mtx->chan);
+    WaitChannel_Destroy(&mtx->chan); // destroy wait channel first
     Spinlock_Destroy(&mtx->lock);
     return;
 }
@@ -48,6 +48,7 @@ Mutex_Destroy(Mutex *mtx)
  *
  * Acquires the mutex.
  */
+
 void
 Mutex_Lock(Mutex *mtx)
 {
@@ -58,6 +59,34 @@ Mutex_Lock(Mutex *mtx)
     ASSERT(Critical_Level() == 0);
 
     /* XXXFILLMEIN */
+
+     // Acquire the mutex's internal spinlock to modify its fields safely
+    Spinlock_Lock(&mtx->lock);
+
+    //while mutex is locked, put current thread to sleep
+    while(mtx->status == MTX_STATUS_LOCKED){
+        //use wait channel to sleep until it is unlocked
+
+        // Lock a wait channel before sleeping on it.
+        WaitChannel_Lock(&mtx->chan);
+
+        //release spinlock to avoid deadlock
+        Spinlock_Unlock(&mtx->lock);
+
+        //put current thread to sleep until mutex is unlocked
+        WaitChannel_Sleep(&mtx->chan);
+
+        // After waking up, re-acquire the spinlock to inspect the mutex again
+        Spinlock_Lock(&mtx->lock);
+    }
+
+    //now mutex is unlocked so can lock it for this thread by updating the strucut
+    mtx->status = MTX_STATUS_LOCKED;
+    mtx->owner = Sched_Current; // set current thread as owner
+
+    //unlock spinlock
+    Spinlock_Unlock(&mtx->lock);
+    return;
 }
 
 /**
@@ -71,7 +100,24 @@ Mutex_TryLock(Mutex *mtx)
 {
     /* XXXFILLMEIN */
 
-    return 0;
+    //thread that wants to take lock if possible
+    //thread does not block if already owned, return fail instead of blocking 
+
+    Spinlock_Lock(&mtx->lock); //accquire lock
+
+    if(mtx->status == MTX_STATUS_LOCKED){
+        Spinlock_Unlock(&mtx->lock); //release lock
+        return EBUSY;
+    }else{
+        
+        //lock is unlocked!, thread can us 
+        mtx->status = MTX_STATUS_LOCKED;
+        mtx->owner = Sched_Current; // set current thread as owner
+        Spinlock_Unlock(&mtx->lock); //release lock
+        return 0;
+    }
+
+    return -1; // code should not make it until here
 }
 
 /**
@@ -84,6 +130,18 @@ Mutex_Unlock(Mutex *mtx)
 {
     /* XXXFILLMEIN */
 
+     // Acquire the mutex's internal spinlock to modify its fields safely
+    Spinlock_Lock(&mtx->lock);
+
+    // Ensure the current thread is the owner of the mutex
+    KASSERT(mtx->owner == Sched_Current());
+    mtx->status = MTX_STATUS_UNLOCKED;
+    mtx->owner = NULL;
+
+    // Wake up a thread waiting on the mutex, if any
+    WaitChannel_Wake(&mtx->chan);
+
+    Spinlock_Unlock(&mtx->lock);
     return;
 }
 
