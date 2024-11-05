@@ -202,46 +202,63 @@ Process_Release(Process *proc)
  * @retval ENOENT Process ID doesn't exist.
  * @return Exit status of the process that exited or crashed.
  */
-uint64_t
-Process_Wait(Process *proc, uint64_t pid)
+uint64_t ProcessWait(Process* process, uint64_t processID)
 {
-    Thread *thr;
-    Process *p = NULL;
-    uint64_t status;
+    Thread* threadPtr;
+    Process* targetProcess = nullptr;
+    uint64_t exitStatus;
 
-    // Step 1: Lock the zombie list
-    Mutex_Lock(&proc->zombieProcLock);
+    Mutex_Lock(&process->zombieProcLock);
 
-    if (pid == 0) {
-        // Step 2: Wait for any zombie child if pid == 0
-        while (TAILQ_EMPTY(&proc->zombieProc)) {
-            CV_Wait(&proc->zombieProcCV, &proc->zombieProcLock);
-        }
-        // Get the first zombie child
-        p = TAILQ_FIRST(&proc->zombieProc);
-    } else {
-        // Step 3: Lookup the specific child and wait for it to become a zombie
-        p = Process_Lookup(pid);
-        if (p == NULL) {
-            Mutex_Unlock(&proc->zombieProcLock);
-            return ENOENT; // No such process
-        }
-        while (p->procState != PROC_STATE_ZOMBIE) {
-            CV_Wait(&p->zombieProcPCV, &proc->zombieProcLock);
+    if (processID == 0)
+    {
+        while (true)
+        {
+            if (!TAILQ_EMPTY(&process->zombieProc))
+            {
+                targetProcess = TAILQ_FIRST(&process->zombieProc);
+                TAILQ_REMOVE(&process->zombieProc, targetProcess, siblingList);
+                break;
+            }
+
+            CV_Wait(&process->zombieProcCV, &process->zombieProcLock);
         }
     }
+    else
+    {
+        targetProcess = Process_Lookup(processID);
 
-    // Step 4: Pack the exit status
-    status = (p->pid << 16) | (p->exitCode & 0xff);
+        while (targetProcess->procState != PROC_STATE_ZOMBIE)
+        {
+            CV_Wait(&targetProcess->zombieProcPCV, &process->zombieProcLock);
+        }
 
-    // Step 5: Remove the zombie process from the queue and unlock
-    TAILQ_REMOVE(&proc->zombieProc, p, siblingList);
-    Mutex_Unlock(&proc->zombieProcLock);
+        TAILQ_REMOVE(&process->zombieProc, targetProcess, siblingList);
+        Process_Release(targetProcess);
+    }
 
-    // Step 6: Release the zombie process
-    Process_Release(p);
+    Mutex_Unlock(&process->zombieProcLock);
 
-    return SYSCALL_PACK(0, status);
+    exitStatus = (targetProcess->pid << 16) | (targetProcess->exitCode & 0xff);
+
+    Spinlock_Lock(&process->lock);
+
+    while (!TAILQ_EMPTY(&targetProcess->zombieQueue))
+    {
+        threadPtr = TAILQ_FIRST(&targetProcess->zombieQueue);
+        TAILQ_REMOVE(&targetProcess->zombieQueue, threadPtr, schedQueue);
+        Spinlock_Unlock(&process->lock);
+
+        ASSERT(threadPtr->proc->pid != 1);
+        Thread_Release(threadPtr);
+
+        Spinlock_Lock(&process->lock);
+    }
+
+    Spinlock_Unlock(&process->lock);
+    Process_Release(targetProcess);
+
+    return SYSCALL_PACK(0, exitStatus);
 }
 
 

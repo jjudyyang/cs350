@@ -56,23 +56,23 @@ Mutex_Lock(Mutex *mtx)
      * You cannot hold a spinlock while trying to acquire a Mutex that may 
      * sleep!
      */
+
     ASSERT(Critical_Level() == 0);
 
     /* XXXFILLMEIN */
 
-     // Acquire the mutex's internal spinlock to modify its fields safely
-    Spinlock_Lock(&mtx->lock);
+    Spinlock_Lock(&mtx->lock);  // Acquire the mutex's internal spinlock to modify its fields safely
+
+    // //check if the lock is locked 
+    // if(mtx->status == MTX_STATUS_LOCKED){
+    //     kprintf("the mtx->status is locked");
+    // }
 
     //while mutex is locked, put current thread to sleep
     while(mtx->status == MTX_STATUS_LOCKED){
-        //use wait channel to sleep until it is unlocked
-
-        // Lock a wait channel before sleeping on it.
-        WaitChannel_Lock(&mtx->chan);
-
-        //release spinlock to avoid deadlock
-        Spinlock_Unlock(&mtx->lock);
-
+       // kdebug("The mtx->status is locked\n");
+        WaitChannel_Lock(&mtx->chan); // Lock a wait channel before sleeping on it.
+        Spinlock_Unlock(&mtx->lock); //release spinlock to avoid deadlock
         //put current thread to sleep until mutex is unlocked
         WaitChannel_Sleep(&mtx->chan);
 
@@ -82,7 +82,7 @@ Mutex_Lock(Mutex *mtx)
 
     //now mutex is unlocked so can lock it for this thread by updating the strucut
     mtx->status = MTX_STATUS_LOCKED;
-    mtx->owner = Sched_Current; // set current thread as owner
+    mtx->owner = Sched_Current(); // set current thread as owner
 
     //unlock spinlock
     Spinlock_Unlock(&mtx->lock);
@@ -110,14 +110,12 @@ Mutex_TryLock(Mutex *mtx)
         return EBUSY;
     }else{
         
-        //lock is unlocked!, thread can us 
+        //lock is unlocked!, thread can use 
         mtx->status = MTX_STATUS_LOCKED;
-        mtx->owner = Sched_Current; // set current thread as owner
+        mtx->owner = Sched_Current(); // set current thread as owner
         Spinlock_Unlock(&mtx->lock); //release lock
         return 0;
     }
-
-    return -1; // code should not make it until here
 }
 
 /**
@@ -134,7 +132,7 @@ Mutex_Unlock(Mutex *mtx)
     Spinlock_Lock(&mtx->lock);
 
     // Ensure the current thread is the owner of the mutex
-    KASSERT(mtx->owner == Sched_Current());
+    ASSERT(mtx->owner == Sched_Current());
     mtx->status = MTX_STATUS_UNLOCKED;
     mtx->owner = NULL;
 
