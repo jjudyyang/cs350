@@ -262,34 +262,64 @@ O2FSLoadVNode(VFS *fs, ObjID *objid)
 int
 O2FSGrowVNode(VNode *vn, uint64_t filesz)
 {
-    VFS *vfs = vn->vfs;
-    BufCacheEntry *vnEntry = (BufCacheEntry *)vn->fsptr;
-    BNode *bn = vnEntry->buffer;
-    uint64_t blkstart = (bn->size + vfs->blksize - 1) / vfs->blksize;
+    VFS *fs = vn->vfs;
+    BufCacheEntry *bufEntry = (BufCacheEntry *)vn->fsptr;
+    BNode *node = bufEntry->buffer;
+    uint64_t startBlock = (node->size + fs->blksize - 1) / fs->blksize;
 
-    if (filesz > (vfs->blksize * O2FS_DIRECT_PTR))
-	return -EINVAL;
+    if (filesz > (fs->blksize * O2FS_DIRECT_PTR * O2FS_INDIRECT_PTR))
+        return -EINVAL;
 
-    for (int i = blkstart; i < ((filesz + vfs->blksize - 1) / vfs->blksize); i++) {
-	if (bn->direct[i].offset != 0)
-		continue;
+    BufCacheEntry *indirectCache = NULL;
+    uint64_t requiredBlocks = (filesz + fs->blksize - 1) / fs->blksize;
 
-	uint64_t blkno = O2FSBAlloc(vfs);
-	if (blkno == 0) {
-		return -ENOSPC;
-	}
+    for (uint64_t blkIdx = startBlock; blkIdx < requiredBlocks; blkIdx++) {
+        
+        uint64_t indirectPos = blkIdx / O2FS_INDIRECT_PTR;
+        uint64_t directPos = blkIdx % O2FS_INDIRECT_PTR;
 
-	bn->direct[i].offset = blkno * vfs->blksize;
+        if (node->indirect[indirectPos].offset == 0) {
+            uint64_t newBlock = O2FSBAlloc(fs);
+            if (newBlock == 0) {
+                return -ENOSPC;
+            }
 
+            node->indirect[indirectPos].device = 0;
+            node->indirect[indirectPos].offset = newBlock * fs->blksize;
+
+            BufCache_Read(vn->disk, node->indirect[indirectPos].offset, &indirectCache);
+            memset(indirectCache->buffer, 0, fs->blksize);
+            BufCache_Write(indirectCache);
+        } else {
+            BufCache_Read(vn->disk, node->indirect[indirectPos].offset, &indirectCache);
+        }
+
+        BInd *indirectPtr = (BInd *)indirectCache->buffer;
+
+        if (indirectPtr->direct[directPos].offset != 0) {
+            BufCache_Release(indirectCache);
+            continue;
+        }
+
+        uint64_t newDirectBlock = O2FSBAlloc(fs);
+        if (newDirectBlock == 0) {
+            BufCache_Release(indirectCache);
+            return -ENOSPC;
+        }
+
+        indirectPtr->direct[directPos].device = 0;
+        indirectPtr->direct[directPos].offset = newDirectBlock * fs->blksize;
+
+        BufCache_Write(indirectCache);
+        BufCache_Release(indirectCache);
     }
 
-    DLOG(o2fs, "Growing: %d\n", filesz);
-    bn->size = filesz;
-
-    BufCache_Write(vnEntry);
+    node->size = filesz;
+    BufCache_Write(bufEntry);
 
     return 0;
 }
+
 
 /**
  * O2FSRetainVNode --
@@ -323,21 +353,42 @@ O2FSReleaseVNode(VNode *vn)
 }
 
 int
-O2FSResolveBuf(VNode *vn, uint64_t b, BufCacheEntry **dentp)
+O2FSResolveBuf(VNode *vnode, uint64_t blkNum, BufCacheEntry **resolvedEntry)
 {
-    BufCacheEntry *vnent = (BufCacheEntry *)vn->fsptr;
-    BufCacheEntry *dent;
-    BNode *bn = vnent->buffer;
-    int status;
+    BufCacheEntry *vnodeCache = (BufCacheEntry *)vnode->fsptr;
+    BufCacheEntry *blockCache;
+    BNode *nodeData = vnodeCache->buffer;
+    int result;
 
-    status = BufCache_Read(vn->disk, bn->direct[b].offset, &dent);
-    if (status < 0)
-        return status;
+    uint64_t indirectPos = blkNum / O2FS_INDIRECT_PTR;
+    uint64_t directPos = blkNum % O2FS_DIRECT_PTR;
 
-    *dentp = dent;
+    BufCacheEntry *indirectBlockCache;
+    
+    result = BufCache_Read(vnode->disk, nodeData->indirect[indirectPos].offset, &indirectBlockCache);
+    if (result < 0) {
+        BufCache_Release(indirectBlockCache);
+        return result;
+    }
 
-    return status;
+    BInd *indirectBlockData = indirectBlockCache->buffer;
+
+    result = BufCache_Read(vnode->disk, indirectBlockData->direct[directPos].offset, &blockCache);
+    if (result < 0) {
+        BufCache_Release(indirectBlockCache);
+        return result;
+    }
+
+    BufCache_Release(indirectBlockCache);
+
+    *resolvedEntry = blockCache;
+
+    return result;
 }
+
+
+
+   
 
 /**
  * O2FS_GetRoot --
@@ -686,3 +737,4 @@ O2FS_ReadDir(VNode *fn, void *buf, uint64_t len, uint64_t *off)
     return count;
 }
 
+//fixed

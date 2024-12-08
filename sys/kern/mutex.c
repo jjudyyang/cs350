@@ -22,68 +22,139 @@
 
 /*
  * For debugging so we can assert the owner without holding a reference to the 
- * thread.  You can access the current thread through curProc[CPU()].
+ * thread. The current thread can be accessed through curProc[CPU()].
  */
 extern Thread *curProc[MAX_CPUS];
 
+/**
+ * Mutex_Init --
+ * 
+ * Initialize the mutex with a spinlock and a wait channel.
+ *
+ * @param mutex A pointer to the mutex structure to initialize.
+ * @param mutexName The name of the mutex for debugging purposes.
+ */
 void
-Mutex_Init(Mutex *mtx, const char *name)
+Mutex_Init(Mutex *mutex, const char *mutexName)
 {
-    Spinlock_Init(&mtx->lock, name, SPINLOCK_TYPE_NORMAL);
-    WaitChannel_Init(&mtx->chan, name);
+    // initialize the spinlock for the mutex
+    Spinlock_Init(&mutex->lock, mutexName, SPINLOCK_TYPE_NORMAL);
+
+    // initialize the wait channel for the mutex
+    WaitChannel_Init(&mutex->chan, mutexName);
 
     return;
 }
 
+/**
+ * Mutex_Destroy --
+ * 
+ * Destroy the mutex by releasing the associated wait channel and spinlock.
+ *
+ * @param mutex A pointer to the mutex structure to destroy.
+ */
 void
-Mutex_Destroy(Mutex *mtx)
+Mutex_Destroy(Mutex *mutex)
 {
-    WaitChannel_Destroy(&mtx->chan);
-    Spinlock_Destroy(&mtx->lock);
+    // destroy the wait channel associated with the mutex
+    WaitChannel_Destroy(&mutex->chan);
+
+    // destroy the spinlock associated with the mutex
+    Spinlock_Destroy(&mutex->lock);
+
     return;
 }
 
 /**
  * Mutex_Lock --
+ * 
+ * Acquire the mutex. This function will block and sleep if the mutex is 
+ * already held by another thread.
  *
- * Acquires the mutex.
+ * @param mutex A pointer to the mutex structure to acquire.
  */
 void
-Mutex_Lock(Mutex *mtx)
+Mutex_Lock(Mutex *mutex)
 {
-    /*
-     * You cannot hold a spinlock while trying to acquire a Mutex that may 
-     * sleep!
-     */
+    // ensure no spinlock is held while attempting to acquire the mutex
     ASSERT(Critical_Level() == 0);
 
-    /* XXXFILLMEIN */
+    // lock the spinlock to access mutex properties safely
+    Spinlock_Lock(&mutex->lock);
+
+    // if the mutex is already locked, put the thread to sleep
+    while (mutex->status == 1) {
+        // lock the wait channel to safely sleep
+        WaitChannel_Lock(&mutex->chan);
+
+        // unlock the spinlock before sleeping to allow other threads access
+        Spinlock_Unlock(&mutex->lock);
+
+        // put the thread to sleep until the mutex becomes available
+        WaitChannel_Sleep(&mutex->chan);
+
+        // re-lock the spinlock upon waking up
+        Spinlock_Lock(&mutex->lock);
+    }
+
+    // mark the mutex as locked and set the current thread as the owner
+    mutex->status = 1;
+    mutex->owner = curProc[CPU()];
+
+    // unlock the spinlock as the mutex is now acquired
+    Spinlock_Unlock(&mutex->lock);
 }
 
 /**
  * Mutex_TryLock --
+ * 
+ * Attempt to acquire the mutex without blocking. If the mutex is already 
+ * locked, return EBUSY; otherwise, lock the mutex and return 0.
  *
- * Attempts to acquire the user mutex.  Returns EBUSY if the lock is already 
- * taken, otherwise 0 on success.
+ * @param mutex A pointer to the mutex structure to attempt to acquire.
+ *
+ * @return 0 if the mutex was successfully acquired, EBUSY if already locked.
  */
 int
-Mutex_TryLock(Mutex *mtx)
+Mutex_TryLock(Mutex *mutex)
 {
-    /* XXXFILLMEIN */
-
-    return 0;
+    // if the mutex is not locked, acquire it and set the current thread as owner
+    if (mutex->status == 0) {
+        mutex->status = 1;
+        mutex->owner = curProc[CPU()];
+        Spinlock_Unlock(&mutex->lock);
+        return 0; // success
+    } else {
+        // if the mutex is already locked, return EBUSY
+        Spinlock_Unlock(&mutex->lock);
+        return EBUSY;
+    }
 }
 
 /**
  * Mutex_Unlock --
+ * 
+ * Release the mutex and wake up any threads waiting on it.
  *
- * Releases the user mutex.
+ * @param mutex A pointer to the mutex structure to release.
  */
 void
-Mutex_Unlock(Mutex *mtx)
+Mutex_Unlock(Mutex *mutex)
 {
-    /* XXXFILLMEIN */
+    // lock the spinlock to safely modify mutex properties
+    Spinlock_Lock(&mutex->lock);
+
+    // mark the mutex as unlocked and clear the owner reference
+    mutex->status = 0;
+    mutex->owner = NULL;
+
+    // wake up any threads waiting on the mutex
+    WaitChannel_Wake(&mutex->chan);
+
+    // unlock the spinlock as the mutex has been successfully released
+    Spinlock_Unlock(&mutex->lock);
 
     return;
 }
 
+//reuploaded

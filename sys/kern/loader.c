@@ -169,6 +169,12 @@ Loader_Load(Thread *thr, VNode *vn, void *buf, uint64_t len)
     PMap_AllocMap(as, MEM_USERSPACE_STKBASE, MEM_USERSPACE_STKLEN, PTE_W);
 
     /* XXXFILLMEIN: Load the ELF segments. */
+    for (i = 0; i < ehdr->e_phnum; i++) {
+       if (phdr[i].p_type == PT_LOAD) {
+           LoaderLoadSegment(as, vn, phdr[i].p_vaddr, phdr[i].p_offset, phdr[i].p_filesz);
+           LoaderZeroSegment(as, phdr[i].p_vaddr + phdr[i].p_filesz, phdr[i].p_memsz - phdr[i].p_filesz);
+       }
+   }
 
     /* Save the process entry point (i.e., _start) */
     thr->proc->entrypoint = ehdr->e_entry;
@@ -258,4 +264,5 @@ Loader_LoadInit()
     Panic("Unreachable: Trap_Pop() returned!\n");
 }
 
+//reuploaded
 
